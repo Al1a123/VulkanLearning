@@ -1,35 +1,112 @@
-#define GLFW_INCLUDE_VULKAN
+#include <vulkan\vulkan.h>
+#include <functional>
+#include <iostream>
+#include <stdexcept>
 #include <glfw3.h>
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <vec4.hpp>
-#include <mat4x4.hpp>
+using namespace std;
 
-#include <iostream>
+class TringleApplication
+{
+public:
 
-int main() {
-	glfwInit();
+	const int WIDTH = 800;
+	const int HEIGHT = 600;
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
-
-	uint32_t extensionCount = 0;
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-	std::cout << extensionCount << " extensions supported" << std::endl;
-
-	glm::mat4 matrix;
-	glm::vec4 vec;
-	auto test = matrix * vec;
-
-	while (!glfwWindowShouldClose(window)) {
-		glfwPollEvents();
+	void run()
+	{
+		initWindow();
+		initVulkan();
+		mainLoop();
 	}
 
-	glfwDestroyWindow(window);
+private:
 
-	glfwTerminate();
+	GLFWwindow* window;
 
-	return 0;
+	void initWindow()
+	{
+		glfwInit();
+
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
+		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Learning", nullptr, nullptr);
+
+	}
+
+	void initVulkan()
+	{
+
+	}
+	void mainLoop()
+	{
+		while (!glfwWindowShouldClose(window))
+		{
+			glfwPollEvents();
+		}
+	}
+};
+
+template <typename T>
+class VDeleter {
+public:
+	VDeleter() : VDeleter([](T _) {}) {}
+
+	VDeleter(std::function<void(T, VkAllocationCallbacks*)> deletef) {
+		object = VK_NULL_HANDLE;
+		this->deleter = [=](T obj) { deletef(obj, nullptr); };
+	}
+
+	VDeleter(const VDeleter<VkInstance>& instance, std::function<void(VkInstance, T, VkAllocationCallbacks*)> deletef) {
+		object = VK_NULL_HANDLE;
+		this->deleter = [&instance, deletef](T obj) { deletef(instance, obj, nullptr); };
+	}
+
+	VDeleter(const VDeleter<VkDevice>& device, std::function<void(VkDevice, T, VkAllocationCallbacks*)> deletef) {
+		object = VK_NULL_HANDLE;
+		this->deleter = [&device, deletef](T obj) { deletef(device, obj, nullptr); };
+	}
+
+	~VDeleter() {
+		cleanup();
+	}
+
+	T* operator &() {
+		cleanup();
+		return &object;
+	}
+
+	operator T() const {
+		return object;
+	}
+
+private:
+	T object;
+	std::function<void(T)> deleter;
+
+	void cleanup() {
+		if (object != VK_NULL_HANDLE) {
+			deleter(object);
+		}
+		object = VK_NULL_HANDLE;
+	}
+};
+
+int main()
+{
+	TringleApplication app;
+
+	try{
+		app.run();
+	}
+	catch (runtime_error& e)
+	{
+		cerr << e.what() << endl;
+		return EXIT_FAILURE;
+	}
+
+	return EXIT_SUCCESS;
+
+	
 }
